@@ -1,0 +1,352 @@
+<!-- templates/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Control Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .alert {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .command-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .remove-command {
+            background: #dc3545;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .stat-box {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px;
+            min-width: 150px;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Telegram Bot Control Panel</h1>
+            <p>Complete management system for your bot</p>
+        </div>
+
+        <div class="card">
+            <h3>🔑 Bot Configuration</h3>
+            <div class="form-group">
+                <label>Bot Token</label>
+                <input type="text" id="botToken" placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz">
+                <button onclick="setToken()">Save Token</button>
+            </div>
+            <div id="tokenStatus"></div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>📝 Bot Information</h3>
+                <div id="botInfo"></div>
+                <div class="form-group">
+                    <label>Bot Name</label>
+                    <input type="text" id="botName" placeholder="New bot name">
+                    <button onclick="updateName()">Update Name</button>
+                </div>
+                <div class="form-group">
+                    <label>Description (Long)</label>
+                    <textarea id="botDesc" rows="3" placeholder="Detailed bot description..."></textarea>
+                    <button onclick="updateDesc()">Update Description</button>
+                </div>
+                <div class="form-group">
+                    <label>Short Description</label>
+                    <input type="text" id="shortDesc" placeholder="Short description...">
+                    <button onclick="updateShortDesc()">Update Short Desc</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🖼️ Bot Avatar</h3>
+                <input type="file" id="avatarFile" accept="image/*">
+                <button onclick="updateAvatar()">Change Profile Picture</button>
+                <div id="avatarStatus"></div>
+            </div>
+
+            <div class="card">
+                <h3>📊 Bot Statistics</h3>
+                <div id="stats"></div>
+                <button onclick="loadStats()">Refresh Stats</button>
+            </div>
+
+            <div class="card">
+                <h3>📢 Broadcast Message</h3>
+                <textarea id="broadcastMsg" rows="4" placeholder="Message to send to all users..."></textarea>
+                <button onclick="sendBroadcast()">Send to All Users</button>
+                <div id="broadcastStatus"></div>
+            </div>
+
+            <div class="card">
+                <h3>⌨️ Bot Commands</h3>
+                <div id="commandsList"></div>
+                <div class="form-group">
+                    <input type="text" id="newCommand" placeholder="/command" style="width: 40%; display: inline-block;">
+                    <input type="text" id="commandDesc" placeholder="Description" style="width: 55%; display: inline-block;">
+                    <button onclick="addCommand()" style="width: 100%; margin-top: 10px;">Add Command</button>
+                </div>
+                <button onclick="saveCommands()">Save All Commands</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let commands = [];
+
+        function setToken() {
+            const token = document.getElementById('botToken').value;
+            fetch('/api/set_token', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token: token})
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('tokenStatus').innerHTML = 
+                    `<div class="alert alert-success">✅ ${data.message}</div>`;
+                loadBotInfo();
+                loadStats();
+            });
+        }
+
+        function loadBotInfo() {
+            fetch('/api/bot_info')
+                .then(res => res.json())
+                .then(data => {
+                    if(data.error) {
+                        document.getElementById('botInfo').innerHTML = 
+                            `<div class="alert alert-error">❌ ${data.error}</div>`;
+                    } else {
+                        document.getElementById('botInfo').innerHTML = `
+                            <p><strong>🤖 @${data.username}</strong></p>
+                            <p>ID: ${data.id}</p>
+                            <p>Name: ${data.first_name}</p>
+                        `;
+                        document.getElementById('botName').value = data.first_name;
+                    }
+                });
+        }
+
+        function updateName() {
+            const newName = document.getElementById('botName').value;
+            fetch('/api/update_name', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: newName})
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || data.error);
+                if(data.success) loadBotInfo();
+            });
+        }
+
+        function updateDesc() {
+            const desc = document.getElementById('botDesc').value;
+            fetch('/api/update_description', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({description: desc})
+            })
+            .then(res => res.json())
+            .then(data => alert(data.message || data.error));
+        }
+
+        function updateShortDesc() {
+            const shortDesc = document.getElementById('shortDesc').value;
+            fetch('/api/update_short_description', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({short_description: shortDesc})
+            })
+            .then(res => res.json())
+            .then(data => alert(data.message || data.error));
+        }
+
+        function updateAvatar() {
+            const file = document.getElementById('avatarFile').files[0];
+            const formData = new FormData();
+            formData.append('photo', file);
+            
+            fetch('/api/update_avatar', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('avatarStatus').innerHTML = 
+                    `<div class="alert ${data.success ? 'alert-success' : 'alert-error'}">
+                        ${data.message || data.error}
+                    </div>`;
+            });
+        }
+
+        function addCommand() {
+            const cmd = document.getElementById('newCommand').value;
+            const desc = document.getElementById('commandDesc').value;
+            if(cmd && desc) {
+                commands.push({command: cmd.replace('/', ''), description: desc});
+                updateCommandsDisplay();
+                document.getElementById('newCommand').value = '';
+                document.getElementById('commandDesc').value = '';
+            }
+        }
+
+        function removeCommand(index) {
+            commands.splice(index, 1);
+            updateCommandsDisplay();
+        }
+
+        function updateCommandsDisplay() {
+            const container = document.getElementById('commandsList');
+            container.innerHTML = commands.map((cmd, idx) => `
+                <div class="command-item">
+                    /${cmd.command} - ${cmd.description}
+                    <button class="remove-command" onclick="removeCommand(${idx})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function saveCommands() {
+            fetch('/api/update_commands', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({commands: commands})
+            })
+            .then(res => res.json())
+            .then(data => alert(data.message || data.error));
+        }
+
+        function sendBroadcast() {
+            const message = document.getElementById('broadcastMsg').value;
+            fetch('/api/send_broadcast', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: message})
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('broadcastStatus').innerHTML = 
+                    `<div class="alert alert-success">
+                        ✅ Sent to ${data.sent}/${data.total} users
+                    </div>`;
+            });
+        }
+
+        function loadStats() {
+            fetch('/api/get_stats')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('stats').innerHTML = `
+                        <div class="stat-box">
+                            <div class="stat-number">${data.total_users}</div>
+                            <div>Total Users</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number">${data.bot_status === 'active' ? '🟢' : '🔴'}</div>
+                            <div>Bot Status</div>
+                        </div>
+                    `;
+                });
+        }
+
+        // Auto load on page load
+        loadBotInfo();
+        loadStats();
+    </script>
+</body>
+  </html>
